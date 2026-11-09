@@ -1,0 +1,68 @@
+Where you are now
+Notebook → .pkl files → Streamlit app. It works, but it has three limits:
+
+It doesn't scale: the similarity table stores a score for every pair of movies. 4,800 movies needs 184 MB, and 45,000 movies would need about 16 GB.
+It isn't personal: everyone who picks Batman gets the same 5 movies.
+It only matches words: it can't tell that "a heist gone wrong" and "a robbery that fails" mean the same thing.
+The steps below fix these one at a time.
+
+Phase 0: Tidy up (1 session)
+Step	What you build	What you learn
+0	Folders (api/, notebooks/, model/), a requirements.txt, a .gitignore, and your API key moved into a .env file	Project structure, keeping secrets out of code
+Done when: the repo pushes to GitHub without the 184 MB file or your API key.
+
+Phase 1: FastAPI backend (uses what you already know)
+The goal is to split the project into a backend, which does the work, and a frontend, which shows it.
+
+Step	What you build	What you learn
+1	GET /health and GET /movies?search=bat&limit=10, with the .pkl files loaded once when the server starts	Startup loading, query parameters, pagination
+2	GET /movies/{movie_id}, which returns 404 if the movie doesn't exist	Path parameters, error handling
+3	GET /movies/{movie_id}/recommendations?k=5, with the logic moved into recommender.py	Separating logic from routes, Pydantic response models
+4	Posters fetched through the API, saved after the first fetch, with a fallback image when TMDB has none	Calling other APIs, caching, handling missing data
+5	Streamlit calls your API instead of opening the .pkl files	How a frontend and backend talk to each other
+6	Tests with pytest and FastAPI's TestClient	Testing endpoints automatically
+Using movie_id instead of the title also fixes the two-Batmans problem.
+
+Phase 2: A database, users and ratings (your CRUD skills)
+Step	What you build	What you learn
+7	SQLite with SQLModel, loading the movies from the CSV into a table, plus CRUD endpoints for movies	Databases, ORMs, migrations
+8	POST /users, plus endpoints for users to rate movies and see their ratings	Table relationships (one user has many ratings)
+9	GET /users/{id}/for-you, which combines the movies a user liked to find new ones	Your first personal recommendations
+Phase 3: Make it scale
+Step	What you build	What you learn
+10	Remove similarity.pkl and calculate only the top matches when someone asks	Why storing every pair can't scale
+11	A bigger dataset (MovieLens, which has about 87,000 movies and millions of real ratings)	Joining datasets with links.csv, which matches MovieLens IDs to TMDB IDs
+12	Docker and docker-compose, then switching from SQLite to Postgres	Running the project the same way on any computer
+Phase 4: Smarter ML
+Before making it "smarter", you need a way to measure it. Otherwise "smarter" is just a feeling.
+
+Step	What you build	What you learn
+13	An evaluation script: hide some of each user's ratings, see if the model recommends those movies, and score it (hit rate, precision@10)	Train/test splits, metrics
+14	TF-IDF instead of CountVectorizer, with the before and after scores compared	Feature engineering backed by evidence
+15	Collaborative filtering ("people who liked X also liked Y") with matrix factorization	Learning from behaviour instead of descriptions
+16	A hybrid: use content matching for new users and ratings for active ones, then compare scores	The cold start problem, blending models
+17	Experiment tracking in MLflow	Keeping track of which version won
+Phase 5: Neural networks
+Step	What you build	What you learn
+18	Sentence embeddings from a ready-made model like all-MiniLM-L6-v2 for each movie's overview, then compare the score with Step 14	Embeddings, which capture meaning rather than words
+19	FAISS for fast similarity search	Vector search across a huge number of items
+20	Your own two-tower model in PyTorch (one network for users, one for movies), trained on MovieLens	Building and training a neural network
+Phase 6: RAG (ties into your other project)
+Step	What you build	What you learn
+21	POST /search with a request like "a sad space movie about a father and daughter": turn the query into an embedding, find matches in FAISS and return them	Semantic search
+22	An LLM ranks those matches and explains each pick using the plot summary ("because you liked…")	Retrieval plus generation, keeping answers grounded
+23	A chat page in the frontend	Putting it all together
+Phase 7: Optional extras
+Logins with JWT
+Redis caching
+Background jobs to retrain the model
+Deploying online (Render, Railway or Hugging Face Spaces)
+How we'll work
+One step at a time: I explain the idea first, you write the code, and I review it. I won't hand you a finished version.
+One commit per step: that way you can always go back.
+Don't skip Step 13: "I made it smarter, and here's the number that proves it" is what makes this stand out on a resume.
+Ready for Step 0? Since it's mostly tidying, I can do it with you in about 10 minutes, then we'll start your first FastAPI endpoint in Step 1. I can also turn this roadmap into a checklist page you can tick off as you go.
+
+
+
+Idle 5h 24m. The prompt cache has likely expired, so your next message will re-cache about 116k tokens.

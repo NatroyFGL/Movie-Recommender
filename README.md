@@ -9,21 +9,25 @@ The recommendations are based on the TMDB 5000 Movies dataset from Kaggle. For e
 Files
 
 app.py - the Streamlit web app.
-notebook86c26b4f17.ipynb - the notebook that cleans the data and builds the model.
+notebooks/main.ipynb - the notebook that cleans the data and builds the model.
+data/ - the dataset CSV files (not uploaded to GitHub).
+model/ - the files the notebook builds (not uploaded to GitHub).
+requirements.txt - the Python packages the project needs.
+.env.example - shows which secret settings the app needs.
 
 Setup
 
 1. Install Python 3 and the needed packages:
 
-   pip install streamlit requests pandas numpy scikit-learn
+   pip install -r requirements.txt
 
-2. Download the TMDB 5000 Movie dataset from Kaggle (tmdb_5000_movies.csv and tmdb_5000_credits.csv).
+2. Download the TMDB 5000 Movie dataset from Kaggle (https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata). Put tmdb_5000_movies.csv and tmdb_5000_credits.csv in the data folder.
 
-3. Run the notebook. At the end it creates two files: movie_list.pkl and similarity.pkl.
+3. Get a free API key from TMDB (https://www.themoviedb.org/settings/api). Make a copy of .env.example, name it .env, and put your key in it.
 
-4. Make a folder called model next to app.py and put both .pkl files inside it.
+4. Run every cell in notebooks/main.ipynb. At the end it saves movie_list.pkl and similarity.pkl in the model folder.
 
-5. Start the app:
+5. Start the app from the main project folder:
 
    streamlit run app.py
 
@@ -32,4 +36,5 @@ Setup
 Notes
 
 You need an internet connection for the posters to load.
-The similarity.pkl file can be large, since it stores a score for every pair of movies.
+The similarity.pkl file is about 184 MB, since it stores a score for every pair of movies.
+Never upload your .env file. It holds your private API key.

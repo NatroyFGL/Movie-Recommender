@@ -1,0 +1,14 @@
+# Secrets
+.env
+
+# Dataset (download it from Kaggle, see README)
+data/
+
+# Files the notebook builds (similarity.pkl is too big for GitHub)
+model/
+
+# Python and Jupyter leftovers
+__pycache__/
+.ipynb_checkpoints/
+.venv/
+*.zip
