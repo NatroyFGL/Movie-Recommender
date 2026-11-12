@@ -4,9 +4,11 @@ from fastapi import Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import Field, Session, SQLModel, select
 
-from api.database import Movie, create_tables, get_session
+from api.database import Movie, Rating, create_tables, get_session
 from api.posters import get_poster
-from api.recommender import recommend
+from api.recommender import recommend, recommend_for_user
+from api import users
+from api.users import find_user
 
 data = {}
 
@@ -21,6 +23,7 @@ async def lifespan(app: FastAPI):
     data.clear()
 
 app = FastAPI(title='Movie Recommender API', lifespan=lifespan) # creates app
+app.include_router(users.router) # adds all the /users endpoints from api/users.py
 
 #shapes of the request body for creating / updating a movie
 class MovieCreate(SQLModel):
@@ -121,3 +124,21 @@ def get_recommendations(movie_id: int, k: int = Query(5, ge=1, le=20), session: 
     for movie_result in results:
         movie_result['poster'] = get_poster(movie_result['movie_id'])
     return {'movie_id': movie_id, 'title': movie['title'], 'poster': movie['poster'], 'recommendations': results}
+
+class ForYouResponse(BaseModel):
+    user_id: int
+    username: str
+    based_on: int
+    recommendations: list[Recommendation]
+
+#personal recommendations from everything the user rated
+@app.get('/users/{user_id}/for-you', response_model=ForYouResponse)
+def for_you(user_id: int, k: int = Query(10, ge=1, le=50), session: Session = Depends(get_session)):
+    user = find_user(session, user_id)
+    ratings = session.exec(select(Rating).where(Rating.user_id == user_id)).all()
+    stars_by_movie = {rating.movie_id: rating.stars for rating in ratings}
+
+    results = recommend_for_user(data['movies'], data['similarity'], stars_by_movie, k)
+    for movie_result in results:
+        movie_result['poster'] = get_poster(movie_result['movie_id'])
+    return {'user_id': user_id, 'username': user.username, 'based_on': len(stars_by_movie), 'recommendations': results}
