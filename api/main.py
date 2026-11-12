@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
+from api.posters import get_poster
 from api.recommender import recommend
 
 data = {}
@@ -53,21 +54,26 @@ def get_movie(movie_id: int):
     if match.empty:                                
         raise HTTPException(status_code=404, detail=f'Movie {movie_id} not found')  
 
-    return match.iloc[0].to_dict()             
+    movie = match.iloc[0].to_dict()
+    movie['poster'] = get_poster(movie_id)
+    return movie
 
 class Recommendation(BaseModel):
     movie_id: int
     title: str
     score: float
-
-
+    poster: str
 class RecommendationResponse(BaseModel):
     movie_id: int
     title: str
+    poster: str
     recommendations: list[Recommendation]
 
+#recommend 5 movies
 @app.get('/movies/{movie_id}/recommendations', response_model=RecommendationResponse)
 def get_recommendations(movie_id: int, k: int = Query(5, ge=1, le=20)):
     movie = get_movie(movie_id)
     results = recommend(data['movies'], data['similarity'], movie_id, k)
-    return {'movie_id': movie_id, 'title': movie['title'], 'recommendations': results}
+    for movie_result in results:
+        movie_result['poster'] = get_poster(movie_result['movie_id'])
+    return {'movie_id': movie_id, 'title': movie['title'], 'poster': movie['poster'], 'recommendations': results}

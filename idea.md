@@ -1,3 +1,5 @@
+### app run
+& "$env:USERPROFILE\.conda\envs\anaconda-2025.12-py3.13\python.exe" -m uvicorn api.main:app --reload
 ### Overall
 Where you are now
 Notebook → .pkl files → Streamlit app. It works, but it has three limits:
