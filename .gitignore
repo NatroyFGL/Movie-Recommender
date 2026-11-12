@@ -13,3 +13,6 @@ __pycache__/
 .venv/
 *.zip
 .pytest_cache/
+
+# Database file (rebuild it with: python -m scripts.seed_db)
+*.db

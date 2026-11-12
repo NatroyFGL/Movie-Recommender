@@ -1,6 +1,9 @@
 ### app run
 & "$env:USERPROFILE\.conda\envs\anaconda-2025.12-py3.13\python.exe" -m uvicorn api.main:app --reload
+& "$env:USERPROFILE\.conda\envs\anaconda-2025.12-py3.13\python.exe" -m streamlit run app.py
+
 ### Overall
+
 Where you are now
 Notebook → .pkl files → Streamlit app. It works, but it has three limits:
 
@@ -217,3 +220,4 @@ How the request flows:
   → recommend(...)       recommender.py: sort the scores, take the top 5
   → Pydantic checks the shape
   → JSON goes back to the user
+

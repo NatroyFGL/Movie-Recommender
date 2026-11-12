@@ -1,20 +1,6 @@
 import pytest
-from fastapi.testclient import TestClient
 
-from api.main import app
-
-FAKE_POSTER = 'https://example.com/poster.jpg'
-
-
-@pytest.fixture(scope='module')
-def client():
-    with TestClient(app) as test_client:
-        yield test_client
-
-
-@pytest.fixture(autouse=True)
-def fake_posters(monkeypatch):
-    monkeypatch.setattr('api.main.get_poster', lambda movie_id: FAKE_POSTER)
+from tests.conftest import FAKE_POSTER
 
 
 def test_health(client):
