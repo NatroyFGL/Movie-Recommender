@@ -7,38 +7,17 @@ This is a simple movie recommender. You pick a movie you like, and it shows you 
 The recommendations are based on the TMDB 5000 Movies dataset from Kaggle. For each movie, the notebook combines its overview, genres, keywords, top 3 cast members and director into one block of text. It then turns that text into word counts and measures how similar every movie is to every other movie using cosine similarity. When you choose a movie, the app returns the 5 movies with the highest similarity score. Posters are loaded from the TMDB website.
 
 ### Architecture map
-╔═══════════════════════════ ONLINE (running app) ═════════════════════════════════════════╗
-║                                                                                          ║
-║   👤 User                                                                                ║
-║    │                                                                                     ║
-║    ▼                                                                                     ║
-║  ┌─────────────────────┐   HTTP (JSON)   ┌───────────────────────────────────────────┐   ║
-║  │ FRONTEND            │ ──────────────► │ BACKEND  (FastAPI, uvicorn :8000)          │   ║
-║  │ app.py  (Streamlit) │ ◄────────────── │                                           │   ║
-║  │ :8501               │                 │  main.py ─── the app                      │   ║
-║  └─────────────────────┘                 │   ├─ lifespan: load pkl files once        │   ║
-║                                          │   ├─ /health, /movies CRUD                │   ║
-║    /docs (Swagger) ─────────────────────►│   ├─ /movies/{id}/recommendations         │   ║
-║    tests (TestClient) ──────────────────►│   ├─ /users/{id}/for-you                  │   ║
-║                                          │   └─ include_router(users.router)         │   ║
-║                                          │                                           │   ║
-║                                          │  users.py ─── router: /users, ratings     │   ║
-║                                          └──────┬──────────────┬──────────────┬──────┘   ║
-║                                                 │              │              │          ║
-║                                                 ▼              ▼              ▼          ║
-║                              ┌──────────────────────┐ ┌──────────────┐ ┌─────────────┐   ║
-║                              │ database.py          │ │recommender.py│ │ posters.py  │   ║
-║                              │ engine, get_session  │ │ recommend    │ │ get_poster  │   ║
-║                              │ Movie, User, Rating  │ │ recommend_   │ │ + cache     │   ║
-║                              └──────────┬───────────┘ │   for_user   │ └──────┬──────┘   ║
-║                                         ▼             └──────┬───────┘        ▼          ║
-║                                 ┌───────────────┐            ▼         🌐 TMDB API       ║
-║                                 │  movies.db    │     similarity.pkl      (.env key)     ║
-║                                 │ movie│user│   │     movie_list.pkl                     ║
-║                                 │      rating   │     (in memory)                        ║
-║                                 └───────────────┘                                        ║
-╚══════════════════════════════════════════════════════════════════════════════════════════╝
-
+![alt text](image-1.png)
+### Database ERD 13/11/2026
+┌──────────────┐        ┌──────────────────────┐        ┌───────────────────┐
+│ user         │        │ rating               │        │ movie             │
+├──────────────┤        ├──────────────────────┤        ├───────────────────┤
+│ id  (PK)     │◄───────│ user_id   (FK)       │        │ id        (PK)    │
+│ username  U  │  1 : N │ movie_id  (FK)       │───────►│ movie_id  U       │
+└──────────────┘        │ stars  1–5           │  N : 1 │ title             │
+                        │ UNIQUE(user, movie)  │        │ tags              │
+                        └──────────────────────┘        └───────────────────┘
+PK = primary key, FK = foreign key, U = unique
 Files
 
 app.py - the Streamlit web app.
