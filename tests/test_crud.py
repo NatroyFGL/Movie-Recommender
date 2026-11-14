@@ -47,8 +47,30 @@ def test_delete_missing_movie(client):
     assert response.status_code == 404
 
 
-def test_new_movie_has_no_recommendations_yet(client):
-    client.post('/movies', json={'movie_id': 999004, 'title': 'Brand New'})
+def test_new_movie_gets_recommendations(client):
+    client.post('/movies', json={'movie_id': 999004, 'title': 'Brand New', 'tags': 'batman gotham joker wayne'})
     response = client.get('/movies/999004/recommendations')
-    assert response.status_code == 404
-    assert response.json() == {'detail': 'No recommendations yet for movie 999004'}
+    assert response.status_code == 200
+    titles = [movie['title'] for movie in response.json()['recommendations']]
+    assert 'The Dark Knight' in titles
+
+
+def test_new_movie_shows_up_in_other_recommendations(client):
+    tags = client.get('/movies/272').json()['tags']
+    client.post('/movies', json={'movie_id': 999005, 'title': 'Batman Begins Copy', 'tags': tags})
+    data = client.get('/movies/272/recommendations').json()
+    assert data['recommendations'][0]['title'] == 'Batman Begins Copy'
+
+
+def test_movie_without_tags_gets_empty_recommendations(client):
+    client.post('/movies', json={'movie_id': 999006, 'title': 'No Tags'})
+    response = client.get('/movies/999006/recommendations')
+    assert response.status_code == 200
+    assert response.json()['recommendations'] == []
+
+
+def test_deleted_movie_is_never_recommended(client):
+    client.delete('/movies/155')
+    data = client.get('/movies/272/recommendations', params={'k': 20}).json()
+    assert 155 not in [movie['movie_id'] for movie in data['recommendations']]
+

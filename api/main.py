@@ -1,4 +1,3 @@
-import pickle
 from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel
@@ -6,24 +5,34 @@ from sqlmodel import Field, Session, SQLModel, select
 
 from api.database import Movie, Rating, create_tables, get_session
 from api.posters import get_poster
-from api.recommender import recommend, recommend_for_user
+from api.recommender import build_index, recommend, recommend_for_user
 from api import users
 from api.users import find_user
 
 data = {}
 
-#server start -> immediately load data -> yield(...) -> only run lines after yield once server stops
+#server start -> create tables, index is built on the first request -> yield(...) -> clean up when server stops
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_tables()
-    data['movies'] = pickle.load(open('model/movie_list.pkl', 'rb'))
-    data['similarity'] = pickle.load(open('model/similarity.pkl', 'rb'))
-    print('Loaded', len(data['movies']), 'movies')
+    data['index'] = None
     yield
     data.clear()
 
 app = FastAPI(title='Movie Recommender API', lifespan=lifespan) # creates app
 app.include_router(users.router) # adds all the /users endpoints from api/users.py
+
+#build the vector index from the database the first time it's needed, then reuse it
+def get_index(session: Session = Depends(get_session)):
+    if data['index'] is None:
+        movies = session.exec(select(Movie).order_by(Movie.id)).all()
+        data['index'] = build_index(movies)
+        print('Built index for', len(movies), 'movies')
+    return data['index']
+
+#throw the index away after movies change, so the next request rebuilds it
+def reset_index():
+    data['index'] = None
 
 #shapes of the request body for creating / updating a movie
 class MovieCreate(SQLModel):
@@ -43,8 +52,8 @@ def find_movie(session, movie_id):
     return movie
 
 @app.get('/health') #endpoint ensuring server running
-def health():
-    return {'status': 'ok', 'movies_loaded': len(data['movies'])}
+def health(index = Depends(get_index)):
+    return {'status': 'ok', 'movies_loaded': len(index['movie_ids'])}
 
 #search and list movies w some constraint (now reads from the database)
 @app.get('/movies')
@@ -84,6 +93,7 @@ def create_movie(new_movie: MovieCreate, session: Session = Depends(get_session)
     session.add(movie)
     session.commit()
     session.refresh(movie)
+    reset_index()
     return movie
 
 #UPDATE: change only the fields that were sent
@@ -94,6 +104,7 @@ def update_movie(movie_id: int, changes: MovieUpdate, session: Session = Depends
     session.add(movie)
     session.commit()
     session.refresh(movie)
+    reset_index()
     return movie
 
 #DELETE: remove a movie
@@ -102,6 +113,7 @@ def delete_movie(movie_id: int, session: Session = Depends(get_session)):
     movie = find_movie(session, movie_id)
     session.delete(movie)
     session.commit()
+    reset_index()
 
 class Recommendation(BaseModel):
     movie_id: int
@@ -116,11 +128,14 @@ class RecommendationResponse(BaseModel):
 
 #recommend 5 movies
 @app.get('/movies/{movie_id}/recommendations', response_model=RecommendationResponse)
-def get_recommendations(movie_id: int, k: int = Query(5, ge=1, le=20), session: Session = Depends(get_session)):
+def get_recommendations(
+    movie_id: int,
+    k: int = Query(5, ge=1, le=20),
+    session: Session = Depends(get_session),
+    index = Depends(get_index),
+):
     movie = get_movie(movie_id, session)
-    if movie_id not in data['movies']['movie_id'].values:
-        raise HTTPException(status_code=404, detail=f'No recommendations yet for movie {movie_id}')
-    results = recommend(data['movies'], data['similarity'], movie_id, k)
+    results = recommend(index, movie_id, k)
     for movie_result in results:
         movie_result['poster'] = get_poster(movie_result['movie_id'])
     return {'movie_id': movie_id, 'title': movie['title'], 'poster': movie['poster'], 'recommendations': results}
@@ -133,12 +148,17 @@ class ForYouResponse(BaseModel):
 
 #personal recommendations from everything the user rated
 @app.get('/users/{user_id}/for-you', response_model=ForYouResponse)
-def for_you(user_id: int, k: int = Query(10, ge=1, le=50), session: Session = Depends(get_session)):
+def for_you(
+    user_id: int,
+    k: int = Query(10, ge=1, le=50),
+    session: Session = Depends(get_session),
+    index = Depends(get_index),
+):
     user = find_user(session, user_id)
     ratings = session.exec(select(Rating).where(Rating.user_id == user_id)).all()
     stars_by_movie = {rating.movie_id: rating.stars for rating in ratings}
 
-    results = recommend_for_user(data['movies'], data['similarity'], stars_by_movie, k)
+    results = recommend_for_user(index, stars_by_movie, k)
     for movie_result in results:
         movie_result['poster'] = get_poster(movie_result['movie_id'])
     return {'user_id': user_id, 'username': user.username, 'based_on': len(stars_by_movie), 'recommendations': results}

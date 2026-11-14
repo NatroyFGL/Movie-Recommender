@@ -10,11 +10,16 @@ FAKE_POSTER = 'https://example.com/poster.jpg'
 
 
 @pytest.fixture(scope='module')
-def client(tmp_path_factory):
+def test_engine(tmp_path_factory):
     db_file = tmp_path_factory.mktemp('db') / 'test.db'
-    test_engine = create_engine(f'sqlite:///{db_file}', connect_args={'check_same_thread': False})
-    seed(test_engine)
+    engine = create_engine(f'sqlite:///{db_file}', connect_args={'check_same_thread': False})
+    seed(engine)
+    yield engine
+    engine.dispose()
 
+
+@pytest.fixture(scope='module')
+def client(test_engine):
     def get_test_session():
         with Session(test_engine) as session:
             yield session
@@ -23,7 +28,6 @@ def client(tmp_path_factory):
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
-    test_engine.dispose()
 
 
 @pytest.fixture(autouse=True)
